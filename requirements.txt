@@ -1,4 +1,10 @@
 django
 djangorestframework
 psycopg2-binary
+django_filter
 django-rest-passwordreset
+pyyaml
+ujson
+requests
+
+drf_writable_nested
