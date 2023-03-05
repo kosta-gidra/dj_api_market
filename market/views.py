@@ -11,13 +11,15 @@ from requests import get
 from django.shortcuts import render
 from rest_framework.filters import SearchFilter
 from rest_framework.authtoken.models import Token
+from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from yaml import load as load_yaml, Loader
 
 from market.models import ProductInfo, Category, Product, Shop, Parameter, ProductParameter, ConfirmEmailToken
-from market.serializers import ProductInfoSerializer, CategorySerializer, ProductSerializer, UserSerializer
+from market.serializers import ProductInfoSerializer, UserSerializer
+from market.signals import new_user_registered
 
 
 class RegisterAccount(APIView):
@@ -25,6 +27,8 @@ class RegisterAccount(APIView):
     Класс для регистрации пользователей.
     При успешной регистрации пользователю высылается email с токеном
     """
+
+    # Тип пользователя (магазин или покупатель) устанавливаетcя в момент регистрации
     def post(self, request, *args, **kwargs):
 
         if {'first_name', 'last_name', 'email', 'password', 'company', 'position'}.issubset(request.data):
@@ -44,16 +48,12 @@ class RegisterAccount(APIView):
                 if user_serializer.is_valid():
                     user = user_serializer.save()
                     user.set_password(request.data['password'])
+                    if request.data.get('type') == 'shop':
+                        user.type = 'shop'
                     user.save()
-
-                    # Отправить пользователю письмо с токеном для подтверждения email
-                    # new_user_registered.send(sender=self.__class__, user_id=user.id)
-
-                    # удалить строку ---
-                    token, _ = ConfirmEmailToken.objects.get_or_create(user_id=user.id)
-                    # ------------------
-
-                    return JsonResponse({'Status': True, 'Token': token.key})
+                    # Отправить пользователю email (с токеном) для его подтверждения
+                    new_user_registered.send(sender=self.__class__, user_id=user.id)
+                    return JsonResponse({'Status': True})
                 else:
                     return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
 
@@ -68,7 +68,6 @@ class ConfirmAccount(APIView):
     def post(self, request, *args, **kwargs):
 
         if {'email', 'token'}.issubset(request.data):
-
             token = ConfirmEmailToken.objects.filter(user__email=request.data['email'],
                                                      key=request.data['token']).first()
             if token:
@@ -102,6 +101,58 @@ class LoginAccount(APIView):
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
 
+class AccountDetails(APIView):
+    """
+    Класс для работы данными пользователя
+    """
+
+    # Получить данные
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
+
+    # Редактирование методом POST.
+    # при изменении email, его необходимо подтвердить, как при регистрации
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+        # проверяем обязательные аргументы
+        if 'password' in request.data:
+            # errors = {}
+            # проверяем пароль на сложность
+            try:
+                validate_password(request.data['password'])
+            except Exception as password_error:
+                error_array = []
+                # noinspection PyTypeChecker
+                for item in password_error:
+                    error_array.append(item)
+                return JsonResponse({'Status': False, 'Errors': {'password': error_array}})
+            else:
+                request.user.set_password(request.data['password'])
+        # проверяем остальные данные
+        user_serializer = UserSerializer(request.user, data=request.data, partial=True)
+        if user_serializer.is_valid():
+
+            # при изменении email статус пользователя перестает быть "активным"
+            if request.data['email'] != request.user.email:
+                request.user.is_active = False
+
+                # Отправить пользователю письмо с токеном для подтверждения email
+                new_user_registered.send(sender=self.__class__, user_id=request.user.id)
+
+                user_serializer.save()
+                return JsonResponse({'Status': True, 'Details': 'Изменился email. Нужно подтверждение'})
+
+            user_serializer.save()
+            return JsonResponse({'Status': True})
+        else:
+            return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
+
+
 class MarketView(ReadOnlyModelViewSet):
     """
     Класс для отображения товаров
@@ -118,7 +169,17 @@ class PartnerUpdate(APIView):
     """
     Класс для обновления прайса от поставщика
     """
+
+    # Администратор магазина устанавливается в момент создания магазина.
+    # Если магазин уже существует, то при запросе обновления прайса происходит
+    # проверка - является ли отправитель запроса администратором этого магазина.
     def post(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'shop':
+            return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
+
         url = request.data.get('url')
         if url:
             validate_url = URLValidator()
@@ -128,36 +189,48 @@ class PartnerUpdate(APIView):
                 return JsonResponse({'Status': False, 'Error': str(e)})
             else:
                 stream = get(url).content
-
                 data = load_yaml(stream, Loader=Loader)
 
-                pprint(data)
+                shop_obj, created = Shop.objects.get_or_create(name=data['shop'])
 
-                shop, _ = Shop.objects.get_or_create(name=data['shop'])
-                Shop.objects.update(url=url)
-                for category in data['categories']:
-                    category_obj, _ = Category.objects.get_or_create(id=category['id'],
-                                                                     name=category['name'],
-                                                                     )
-                    category_obj.shops.add(shop.id)
-                    category_obj.save()
-                ProductInfo.objects.filter(shop_id=shop.id).delete()
-                for product in data['goods']:
-                    product_obj, _ = Product.objects.get_or_create(name=product['name'],
-                                                                   category_id=product['category']
-                                                                   )
+                # привязываем пользователя к созданному магазину
+                if created:
+                    shop_obj.user = request.user
+                    shop_obj.url = url
+                    shop_obj.save()
 
-                    product_info_obj, _ = ProductInfo.objects.get_or_create(product_id=product_obj.id,
-                                                                            shop_id=shop.id,
-                                                                            model=product['model'],
-                                                                            quantity=product['quantity'],
-                                                                            price=product['price'],
-                                                                            price_rrc=product['price_rrc'],
-                                                                            external_id=product['id']
-                                                                            )
-                    for parameter, value in product['parameters'].items():
-                        parameter_obj, _ = Parameter.objects.get_or_create(name=parameter)
-                        ProductParameter.objects.create(product_info_id=product_info_obj.id,
-                                                        parameter_id=parameter_obj.id,
-                                                        value=value)
-            return JsonResponse({'Status': True})
+                # проверяем является ли пользователь администратором магазина
+                if shop_obj.user == request.user or created:
+
+                    for category in data['categories']:
+                        category_obj, _ = Category.objects.get_or_create(id=category['id'],
+                                                                         name=category['name'],
+                                                                         )
+                        category_obj.shops.add(shop_obj.id)
+                        category_obj.save()
+                    ProductInfo.objects.filter(shop_id=shop_obj.id).delete()
+
+                    for product in data['goods']:
+                        product_obj, _ = Product.objects.get_or_create(name=product['name'],
+                                                                       category_id=product['category']
+                                                                       )
+
+                        product_info_obj, _ = ProductInfo.objects.get_or_create(product_id=product_obj.id,
+                                                                                shop_id=shop_obj.id,
+                                                                                model=product['model'],
+                                                                                quantity=product['quantity'],
+                                                                                price=product['price'],
+                                                                                price_rrc=product['price_rrc'],
+                                                                                external_id=product['id']
+                                                                                )
+                        for parameter, value in product['parameters'].items():
+                            parameter_obj, _ = Parameter.objects.get_or_create(name=parameter)
+                            ProductParameter.objects.create(product_info_id=product_info_obj.id,
+                                                            parameter_id=parameter_obj.id,
+                                                            value=value)
+                    return JsonResponse({'Status': True})
+                else:
+                    return JsonResponse({'Status': False, 'Errors': 'Обновлять прайс может '
+                                                                    'только администратор магазина'})
+
+        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})

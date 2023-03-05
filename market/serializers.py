@@ -19,9 +19,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        # fields = ['id', 'first_name', 'last_name', 'email', 'company', 'position']
-        fields = ['id', 'first_name', 'last_name', 'email', 'company', 'position', 'contacts']
-        read_only_fields = ['id']
+        fields = ['id', 'first_name', 'last_name', 'email', 'company', 'position', 'contacts', 'type']
+        read_only_fields = ['id', 'type']
 
 
 class ShopSerializer(serializers.ModelSerializer):
@@ -64,8 +63,6 @@ class ProductInfoSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
     product_parameters = ProductParameterSerializer(read_only=True, many=True)
 
-
     class Meta:
         model = ProductInfo
         fields = ['model', 'quantity', 'price', 'price_rrc', 'external_id', 'product', 'product_parameters']
-

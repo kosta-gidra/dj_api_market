@@ -153,12 +153,13 @@ class Contact(models.Model):
 
 
 class Shop(models.Model):
-    name = models.CharField(max_length=50, verbose_name='Название')
+    name = models.CharField(max_length=50, verbose_name='Название', unique=True)
     url = models.URLField(verbose_name='Ссылка', null=True, blank=True)
 
     user = models.OneToOneField(User, verbose_name='Пользователь',
                                 blank=True, null=True,
                                 on_delete=models.CASCADE)
+
     # state = models.BooleanField(verbose_name='статус получения заказов', default=True)
 
     # filename = models.CharField(blank=True)
