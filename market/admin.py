@@ -1,8 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from market.models import User, Shop, Category, Product, ProductInfo, Parameter, ProductParameter
-# from market.models import Order, OrderItem, Contact, ConfirmEmailToken
+from market.models import User, Shop, Category, Product, ProductInfo, Parameter, ProductParameter,\
+    Order, OrderItem, Contact, ConfirmEmailToken
 
 
 @admin.register(User)
@@ -53,21 +53,21 @@ class ProductParameterAdmin(admin.ModelAdmin):
     pass
 
 
-# @admin.register(Order)
-# class OrderAdmin(admin.ModelAdmin):
-#     pass
-#
-#
-# @admin.register(OrderItem)
-# class OrderItemAdmin(admin.ModelAdmin):
-#     pass
-#
-#
-# @admin.register(Contact)
-# class ContactAdmin(admin.ModelAdmin):
-#     pass
-#
-#
-# @admin.register(ConfirmEmailToken)
-# class ConfirmEmailTokenAdmin(admin.ModelAdmin):
-#     list_display = ('user', 'key', 'created_at',)
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(OrderItem)
+class OrderItemAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(Contact)
+class ContactAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(ConfirmEmailToken)
+class ConfirmEmailTokenAdmin(admin.ModelAdmin):
+    list_display = ('user', 'key', 'created_at',)

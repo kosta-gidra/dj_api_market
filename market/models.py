@@ -5,15 +5,15 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django_rest_passwordreset.tokens import get_token_generator
 
-# STATE_CHOICES = (
-#     ('basket', 'Статус корзины'),
-#     ('new', 'Новый'),
-#     ('confirmed', 'Подтвержден'),
-#     ('assembled', 'Собран'),
-#     ('sent', 'Отправлен'),
-#     ('delivered', 'Доставлен'),
-#     ('canceled', 'Отменен')
-# )
+STATE_CHOICES = (
+    ('basket', 'Статус корзины'),
+    ('new', 'Новый'),
+    ('confirmed', 'Подтвержден'),
+    ('assembled', 'Собран'),
+    ('sent', 'Отправлен'),
+    ('delivered', 'Доставлен'),
+    ('canceled', 'Отменен')
+)
 
 USER_TYPE_CHOICES = (
     ('shop', 'Магазин'),
@@ -135,7 +135,6 @@ class Contact(models.Model):
     user = models.ForeignKey(User, verbose_name='Пользователь',
                              related_name='contacts', blank=True,
                              on_delete=models.CASCADE)
-
     city = models.CharField(max_length=50, verbose_name='Город')
     street = models.CharField(max_length=100, verbose_name='Улица')
     house = models.CharField(max_length=15, verbose_name='Дом')
@@ -155,12 +154,10 @@ class Contact(models.Model):
 class Shop(models.Model):
     name = models.CharField(max_length=50, verbose_name='Название', unique=True)
     url = models.URLField(verbose_name='Ссылка', null=True, blank=True)
-
     user = models.OneToOneField(User, verbose_name='Пользователь',
                                 blank=True, null=True,
                                 on_delete=models.CASCADE)
-
-    # state = models.BooleanField(verbose_name='статус получения заказов', default=True)
+    state = models.BooleanField(verbose_name='статус получения заказов', default=True)
 
     # filename = models.CharField(blank=True)
 
@@ -247,41 +244,41 @@ class ProductParameter(models.Model):
         ]
 
 
-# class Order(models.Model):
-#     user = models.ForeignKey(User, verbose_name='Пользователь',
-#                              related_name='orders', blank=True,
-#                              on_delete=models.CASCADE)
-#     dt = models.DateTimeField(auto_now_add=True)
-#     state = models.CharField(verbose_name='Статус', choices=STATE_CHOICES, max_length=15)
-#     contact = models.ForeignKey(Contact, verbose_name='Контакт',
-#                                 blank=True, null=True,
-#                                 on_delete=models.CASCADE)
-#
-#     class Meta:
-#         verbose_name = 'Заказ'
-#         verbose_name_plural = "Список заказ"
-#         ordering = ('-dt',)
-#
-#     def __str__(self):
-#         return str(self.dt)
-#
-#     # @property
-#     # def sum(self):
-#     #     return self.ordered_items.aggregate(total=Sum("quantity"))["total"]
-#
-#
-# class OrderItem(models.Model):
-#     order = models.ForeignKey(Order, verbose_name='Заказ',
-#                               related_name='ordered_items',
-#                               blank=True, on_delete=models.CASCADE)
-#     product_info = models.ForeignKey(ProductInfo, verbose_name='Информация о продукте',
-#                                      related_name='ordered_items',
-#                                      blank=True, on_delete=models.CASCADE)
-#     quantity = models.PositiveIntegerField(verbose_name='Количество')
-#
-#     class Meta:
-#         verbose_name = 'Заказанная позиция'
-#         verbose_name_plural = "Список заказанных позиций"
-#         constraints = [
-#             models.UniqueConstraint(fields=['order_id', 'product_info'], name='unique_order_item'),
-#         ]
+class Order(models.Model):
+    user = models.ForeignKey(User, verbose_name='Пользователь',
+                             related_name='orders', blank=True,
+                             on_delete=models.CASCADE)
+    dt = models.DateTimeField(auto_now_add=True)
+    state = models.CharField(verbose_name='Статус', choices=STATE_CHOICES, max_length=15)
+    contact = models.ForeignKey(Contact, verbose_name='Контакт',
+                                blank=True, null=True,
+                                on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name = 'Заказ'
+        verbose_name_plural = "Список заказ"
+        ordering = ('-dt',)
+
+    def __str__(self):
+        return str(self.dt)
+
+    # @property
+    # def sum(self):
+    #     return self.ordered_items.aggregate(total=Sum("quantity"))["total"]
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, verbose_name='Заказ',
+                              related_name='ordered_items',
+                              blank=True, on_delete=models.CASCADE)
+    product_info = models.ForeignKey(ProductInfo, verbose_name='Информация о продукте',
+                                     related_name='ordered_items',
+                                     blank=True, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(verbose_name='Количество')
+
+    class Meta:
+        verbose_name = 'Заказанная позиция'
+        verbose_name_plural = "Список заказанных позиций"
+        constraints = [
+            models.UniqueConstraint(fields=['order_id', 'product_info'], name='unique_order_item'),
+        ]

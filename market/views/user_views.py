@@ -1,24 +1,16 @@
-from pprint import pprint
-
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
-from django.core.validators import URLValidator
+from django.db.models import Q
 from django.http import JsonResponse
-from django_filters.rest_framework import DjangoFilterBackend
-from requests import get
 
-from django.shortcuts import render
-from rest_framework.filters import SearchFilter
 from rest_framework.authtoken.models import Token
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
+from rest_framework.viewsets import ModelViewSet
 
-from yaml import load as load_yaml, Loader
-
-from market.models import ProductInfo, Category, Product, Shop, Parameter, ProductParameter, ConfirmEmailToken
-from market.serializers import ProductInfoSerializer, UserSerializer
+from market.models import ConfirmEmailToken, Contact
+from market.serializers import UserSerializer, ContactSerializer
 from market.signals import new_user_registered
 
 
@@ -42,8 +34,6 @@ class RegisterAccount(APIView):
                     error_array.append(item)
                 return JsonResponse({'Status': False, 'Errors': {'password': error_array}})
             else:
-                # request.data._mutable = True
-                # request.data.update({})
                 user_serializer = UserSerializer(data=request.data)
                 if user_serializer.is_valid():
                     user = user_serializer.save()
@@ -153,84 +143,73 @@ class AccountDetails(APIView):
             return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
 
 
-class MarketView(ReadOnlyModelViewSet):
+class ContactView(APIView):
     """
-    Класс для отображения товаров
-    с возможностью поиска по имени и фильтрации по магазину и категории
-    """
-    queryset = ProductInfo.objects.all()
-    serializer_class = ProductInfoSerializer
-    filter_backends = [SearchFilter, DjangoFilterBackend]
-    filterset_fields = ['shop', 'product__category']
-    search_fields = ['product__name']
-
-
-class PartnerUpdate(APIView):
-    """
-    Класс для обновления прайса от поставщика
+    Класс для работы с контактами покупателей
     """
 
-    # Администратор магазина устанавливается в момент создания магазина.
-    # Если магазин уже существует, то при запросе обновления прайса происходит
-    # проверка - является ли отправитель запроса администратором этого магазина.
+    # получить мои контакты
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+        contact = Contact.objects.filter(
+            user_id=request.user.id)
+        serializer = ContactSerializer(contact, many=True)
+        return Response(serializer.data)
+
+    # добавить новый контакт
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
-        if request.user.type != 'shop':
-            return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
+        if {'city', 'street', 'phone'}.issubset(request.data):
+            request.data._mutable = True
+            request.data.update({'user': request.user.id})
+            serializer = ContactSerializer(data=request.data)
 
-        url = request.data.get('url')
-        if url:
-            validate_url = URLValidator()
-            try:
-                validate_url(url)
-            except ValidationError as e:
-                return JsonResponse({'Status': False, 'Error': str(e)})
+            if serializer.is_valid():
+                serializer.save()
+                return JsonResponse({'Status': True})
             else:
-                stream = get(url).content
-                data = load_yaml(stream, Loader=Loader)
+                JsonResponse({'Status': False, 'Errors': serializer.errors})
 
-                shop_obj, created = Shop.objects.get_or_create(name=data['shop'])
+        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
-                # привязываем пользователя к созданному магазину
-                if created:
-                    shop_obj.user = request.user
-                    shop_obj.url = url
-                    shop_obj.save()
+    # удалить контакт
+    def delete(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
-                # проверяем является ли пользователь администратором магазина
-                if shop_obj.user == request.user or created:
+        items_sting = request.data.get('items')
+        if items_sting:
+            items_list = items_sting.split(',')
+            query = Q()
+            objects_deleted = False
+            for contact_id in items_list:
+                if contact_id.isdigit():
+                    query = query | Q(user_id=request.user.id, id=contact_id)
+                    objects_deleted = True
 
-                    for category in data['categories']:
-                        category_obj, _ = Category.objects.get_or_create(id=category['id'],
-                                                                         name=category['name'],
-                                                                         )
-                        category_obj.shops.add(shop_obj.id)
-                        category_obj.save()
-                    ProductInfo.objects.filter(shop_id=shop_obj.id).delete()
+            if objects_deleted:
+                deleted_count = Contact.objects.filter(query).delete()[0]
+                return JsonResponse({'Status': True, 'Удалено объектов': deleted_count})
+        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
-                    for product in data['goods']:
-                        product_obj, _ = Product.objects.get_or_create(name=product['name'],
-                                                                       category_id=product['category']
-                                                                       )
+    # редактировать контакт
+    def put(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
-                        product_info_obj, _ = ProductInfo.objects.get_or_create(product_id=product_obj.id,
-                                                                                shop_id=shop_obj.id,
-                                                                                model=product['model'],
-                                                                                quantity=product['quantity'],
-                                                                                price=product['price'],
-                                                                                price_rrc=product['price_rrc'],
-                                                                                external_id=product['id']
-                                                                                )
-                        for parameter, value in product['parameters'].items():
-                            parameter_obj, _ = Parameter.objects.get_or_create(name=parameter)
-                            ProductParameter.objects.create(product_info_id=product_info_obj.id,
-                                                            parameter_id=parameter_obj.id,
-                                                            value=value)
-                    return JsonResponse({'Status': True})
-                else:
-                    return JsonResponse({'Status': False, 'Errors': 'Обновлять прайс может '
-                                                                    'только администратор магазина'})
+        if 'id' in request.data:
+            if request.data['id'].isdigit():
+                contact = Contact.objects.filter(id=request.data['id'], user_id=request.user.id).first()
+                print(contact)
+                if contact:
+                    serializer = ContactSerializer(contact, data=request.data, partial=True)
+                    if serializer.is_valid():
+                        serializer.save()
+                        return JsonResponse({'Status': True})
+                    else:
+                        JsonResponse({'Status': False, 'Errors': serializer.errors})
 
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})

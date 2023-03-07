@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from drf_writable_nested.serializers import WritableNestedModelSerializer
 
-from market.models import Shop, Category, Product, ProductInfo, ProductParameter, Parameter, User, Contact
+from market.models import Shop, Category, Product, ProductInfo, ProductParameter, Parameter, User, Contact, OrderItem, \
+    Order
 
 
 class ContactSerializer(serializers.ModelSerializer):
@@ -26,7 +27,7 @@ class UserSerializer(serializers.ModelSerializer):
 class ShopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
-        fields = ['id', 'name', 'url']
+        fields = ['id', 'name', 'state']
         read_only_fields = ['id']
 
 
@@ -66,3 +67,29 @@ class ProductInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductInfo
         fields = ['model', 'quantity', 'price', 'price_rrc', 'external_id', 'product', 'product_parameters']
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'product_info', 'quantity', 'order']
+        read_only_fields = ['id']
+        extra_kwargs = {
+            'order': {'write_only': True}
+        }
+
+
+class OrderItemCreateSerializer(OrderItemSerializer):
+    product_info = ProductInfoSerializer(read_only=True)
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    ordered_items = OrderItemCreateSerializer(read_only=True, many=True)
+
+    total_sum = serializers.IntegerField()
+    contact = ContactSerializer(read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ['id', 'ordered_items', 'state', 'dt', 'total_sum', 'contact']
+        read_only_fields = ['id']
