@@ -1,6 +1,5 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
-from django.db.models import Q
 from django.http import JsonResponse
 from django.db.models.query import QuerySet
 
@@ -25,7 +24,6 @@ class RegisterAccount(APIView):
     def post(self, request, *args, **kwargs):
 
         if {'first_name', 'last_name', 'email', 'password', 'company', 'position'}.issubset(request.data):
-            # errors = {}
             try:
                 validate_password(request.data['password'])
             except Exception as password_error:
@@ -104,12 +102,11 @@ class AccountDetails(APIView):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
 
-    # Редактирование методом POST.
+    # Редактирование данные.
     # при изменении email, его необходимо подтвердить, как при регистрации
     def post(self, request, *args, **kwargs):
         # проверяем обязательные аргументы
         if 'password' in request.data:
-            # errors = {}
             # проверяем пароль на сложность
             try:
                 validate_password(request.data['password'])
@@ -141,78 +138,6 @@ class AccountDetails(APIView):
             return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
 
 
-# class ContactView(APIView):
-#     """
-#     Класс для работы с контактами покупателей
-#     """
-#
-#     # получить мои контакты
-#     def get(self, request, *args, **kwargs):
-#         if not request.user.is_authenticated:
-#             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
-#         contact = Contact.objects.filter(
-#             user_id=request.user.id)
-#         serializer = ContactSerializer(contact, many=True)
-#         return Response(serializer.data)
-#
-#     # добавить новый контакт
-#     def post(self, request, *args, **kwargs):
-#         if not request.user.is_authenticated:
-#             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
-#
-#         if {'city', 'street', 'phone'}.issubset(request.data):
-#             request.data._mutable = True
-#             request.data.update({'user': request.user.id})
-#             serializer = ContactSerializer(data=request.data)
-#
-#             if serializer.is_valid():
-#                 serializer.save()
-#                 return JsonResponse({'Status': True})
-#             else:
-#                 JsonResponse({'Status': False, 'Errors': serializer.errors})
-#
-#         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
-#
-#     # удалить контакт
-#     def delete(self, request, *args, **kwargs):
-#         if not request.user.is_authenticated:
-#             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
-#
-#         items_sting = request.data.get('items')
-#         if items_sting:
-#             items_list = items_sting.split(',')
-#             query = Q()
-#             objects_deleted = False
-#             for contact_id in items_list:
-#                 if contact_id.isdigit():
-#                     query = query | Q(user_id=request.user.id, id=contact_id)
-#                     objects_deleted = True
-#
-#             if objects_deleted:
-#                 deleted_count = Contact.objects.filter(query).delete()[0]
-#                 return JsonResponse({'Status': True, 'Удалено объектов': deleted_count})
-#         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
-#
-#     # редактировать контакт
-#     def put(self, request, *args, **kwargs):
-#         if not request.user.is_authenticated:
-#             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
-#
-#         if 'id' in request.data:
-#             if request.data['id'].isdigit():
-#                 contact = Contact.objects.filter(id=request.data['id'], user_id=request.user.id).first()
-#                 print(contact)
-#                 if contact:
-#                     serializer = ContactSerializer(contact, data=request.data, partial=True)
-#                     if serializer.is_valid():
-#                         serializer.save()
-#                         return JsonResponse({'Status': True})
-#                     else:
-#                         JsonResponse({'Status': False, 'Errors': serializer.errors})
-#
-#         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
-
-
 class ContactView(ModelViewSet):
     """
     Класс для работы с контактами покупателей
@@ -221,11 +146,13 @@ class ContactView(ModelViewSet):
     serializer_class = ContactSerializer
     permission_classes = [IsAuthenticated]
 
+    # пользователя передаем через токен
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)  # пользователя передаем через токен
+        serializer.save(user=self.request.user)
 
     def create(self, request, *args, **kwargs):
-        if {'city', 'street', 'phone', 'house'}.issubset(request.data):  # проверяем обязательные поля
+        # проверяем обязательные поля
+        if {'city', 'street', 'phone', 'house'}.issubset(request.data):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             self.perform_create(serializer)
@@ -233,7 +160,8 @@ class ContactView(ModelViewSet):
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
     def get_queryset(self):
-        queryset = self.queryset.filter(user=self.request.user)  # Фильтруем по пользователю
+        # Фильтруем по пользователю
+        queryset = self.queryset.filter(user=self.request.user)
 
         if isinstance(queryset, QuerySet):
             # Ensure queryset is re-evaluated on each request.
@@ -241,7 +169,7 @@ class ContactView(ModelViewSet):
         return queryset
 
     def update(self, request, *args, **kwargs):
-        if {'city', 'street', 'phone', 'house'}.issubset(request.data):  # проверяем обязательные поля
+        if {'city', 'street', 'phone', 'house'}.issubset(request.data):
             partial = kwargs.pop('partial', False)
             instance = self.get_object()
             serializer = self.get_serializer(instance, data=request.data, partial=partial)

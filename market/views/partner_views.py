@@ -2,7 +2,7 @@ from distutils.util import strtobool
 
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
-from django.db.models import Sum, F, QuerySet
+from django.db.models import QuerySet
 from django.http import JsonResponse
 
 from requests import get
@@ -111,27 +111,6 @@ class PartnerState(APIView):
                 return JsonResponse({'Status': False, 'Errors': str(error)})
 
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
-
-
-# class PartnerOrders(APIView):
-#     """
-#     Класс для получения заказов поставщиками
-#     """
-#     def get(self, request, *args, **kwargs):
-#         if not request.user.is_authenticated:
-#             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
-#
-#         if request.user.type != 'shop':
-#             return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
-#
-#         order = Order.objects.filter(
-#             ordered_items__product_info__shop__user_id=request.user.id).exclude(state='basket').prefetch_related(
-#             'ordered_items__product_info__product__category',
-#             'ordered_items__product_info__product_parameters__parameter').select_related('contact').annotate(
-#             total_sum=Sum(F('ordered_items__quantity') * F('ordered_items__product_info__price'))).distinct()
-#
-#         serializer = OrderSerializer(order, many=True)
-#         return Response(serializer.data)
 
 
 class PartnerOrders(ReadOnlyModelViewSet):

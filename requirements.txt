@@ -6,5 +6,4 @@ django-rest-passwordreset
 pyyaml
 requests
 python-dotenv
-
-drf_writable_nested
+gunicorn

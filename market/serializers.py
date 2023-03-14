@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
-from market.models import Shop, Category, Product, ProductInfo, ProductParameter, Parameter, User, Contact, OrderItem, \
-    Order
+from market.models import Shop, Category, Product, ProductInfo, ProductParameter, \
+    Parameter, User, Contact, OrderItem, Order
 
 
 class ContactSerializer(serializers.ModelSerializer):
