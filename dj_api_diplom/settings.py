@@ -22,12 +22,15 @@ load_dotenv(BASE_DIR / '.env')
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = os.getenv('SECRET_KEY', '123abc!')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True')
+DEBUG = os.getenv('DEBUG', 'False')
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')
+if os.getenv('ALLOWED_HOSTS'):
+    ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')
+else:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
 
 # Application definition
 
@@ -85,10 +88,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'market_base',
-        'HOST': os.getenv('PG_HOST', '127.0.0.1'),
-        'PORT': os.getenv('PG_PORT', '5431'),
-        'USER': os.getenv('PG_USER'),
-        'PASSWORD': os.getenv('PG_PASSWORD')
+        'HOST': os.getenv('PG_HOST', 'pg_db'),
+        'PORT': os.getenv('PG_PORT', '5432'),
+        'USER': os.getenv('PG_USER', 'user'),
+        'PASSWORD': os.getenv('PG_PASSWORD', '1234')
     }
 }
 
@@ -128,6 +131,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AUTH_USER_MODEL = 'market.User'
 
@@ -137,10 +142,6 @@ AUTH_USER_MODEL = 'market.User'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-
-# test
-# EMAIL_HOST_USER = 'netology-pdiplom@mail.ru'
-# EMAIL_HOST_PASSWORD = 'i~8W4rdRPFlo'
 
 EMAIL_HOST = 'smtp.mail.ru'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
