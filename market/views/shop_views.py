@@ -11,7 +11,8 @@ from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from market.models import ProductInfo, Order, OrderItem
 from market.serializers import ProductInfoSerializer, OrderSerializer, OrderItemSerializer
-from market.signals import new_order
+# from market.signals import new_order
+from market.tasks import send_simple_mail_task
 
 
 class MarketView(ReadOnlyModelViewSet):
@@ -131,6 +132,12 @@ class OrderView(APIView):
                 return JsonResponse({'Status': False, 'Errors': 'Неправильно указаны аргументы'})
             else:
                 if is_updated:
-                    new_order.send(sender=self.__class__, user_id=request.user.id)
+                    # отправить email о создании нового заказа, используя Signals:
+                    # new_order.send(user_id=request.user.id)
+
+                    # используя Celery
+                    send_simple_mail_task.delay(user_id=request.user.id,
+                                                title='Django-API-market: Обновление статуса заказа',
+                                                message='Заказ сформирован')
                     return JsonResponse({'Status': True})
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})

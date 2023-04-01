@@ -7,3 +7,6 @@ pyyaml
 requests
 python-dotenv
 gunicorn
+celery
+redis
+celery[redis]
