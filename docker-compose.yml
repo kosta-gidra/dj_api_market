@@ -24,37 +24,37 @@ services:
     depends_on:
       - pg_db
 
-  app:
-    build: .
-    image: dj_api_diplom:latest
-    container_name: app
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    depends_on:
-      - redis
-    volumes:
-      - .:/app
-      - static_volume:/app/static
-      - media_volume:/app/media
-    command: [sh, -c, "celery -A dj_api_diplom worker -D  && 
-    python manage.py collectstatic --noinput && 
-    python manage.py migrate && gunicorn dj_api_diplom.wsgi:application -b 0.0.0.0:8000"]
-
-  nginx:
-    build:
-      dockerfile: ./Dockerfile
-      context: ./docker/nginx/
-    container_name: app_nginx
-    image: app_nginx
-    volumes:
-      - static_volume:/app/static
-      - media_volume:/app/media
-    depends_on:
-      - app
-    ports:
-      - "${NGINX_EXTERNAL_PORT}:80"
+#  app:
+#    build: .
+#    image: dj_api_diplom:latest
+#    container_name: app
+#    ports:
+#      - "8000:8000"
+#    env_file:
+#      - .env
+#    depends_on:
+#      - redis
+#    volumes:
+#      - .:/app
+#      - static_volume:/app/static
+#      - media_volume:/app/media
+#    command: [sh, -c, "celery -A dj_api_diplom worker -D  &&
+#    python manage.py collectstatic --noinput &&
+#    python manage.py migrate && gunicorn dj_api_diplom.wsgi:application -b 0.0.0.0:8000"]
+#
+#  nginx:
+#    build:
+#      dockerfile: ./Dockerfile
+#      context: ./docker/nginx/
+#    container_name: app_nginx
+#    image: app_nginx
+#    volumes:
+#      - static_volume:/app/static
+#      - media_volume:/app/media
+#    depends_on:
+#      - app
+#    ports:
+#      - "${NGINX_EXTERNAL_PORT}:80"
 
 volumes:
   static_volume:

@@ -41,13 +41,20 @@ class RegisterAccount(APIView):
                     if request.data.get('type') == 'shop':
                         user.type = 'shop'
                     user.save()
-                    # Отправить пользователю email (с токеном) для его подтверждения, используя Signals:
-                    # new_user_registered.send(user_id=user.id)
 
-                    # используя Celery
-                    send_token_to_email_task.delay(user_id=user.id,
-                                                   title='Django-API-market: Mail confirmation token')
-                    return JsonResponse({'Status': True})
+                    if request.data.get('test') == 'test':
+                        # Для тестирования возвращаем токен в ответе (вместо отправки почтой):
+                        token, _ = ConfirmEmailToken.objects.get_or_create(user_id=user.id)
+                        return JsonResponse({'Status': True, 'Token': token.key})
+
+                    else:
+                        # Отправить пользователю email (с токеном) для его подтверждения, используя Signals:
+                        # new_user_registered.send(user_id=user.id)
+
+                        # используя Celery
+                        send_token_to_email_task.delay(user_id=user.id,
+                                                       title='Django-API-market: Mail confirmation token')
+                        return JsonResponse({'Status': True})
                 else:
                     return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
 
@@ -128,10 +135,11 @@ class AccountDetails(APIView):
             else:
                 request.user.set_password(request.data['password'])
 
-                # отправляем пользователю email уведомление о смене пароля (Через Celery)
-                send_simple_mail_task.delay(user_id=request.user.id,
-                                            title='Django-API-market: Изменение пароля',
-                                            message='Пароль был изменен')
+                if 'test' not in request.data:
+                    # отправляем пользователю email уведомление о смене пароля (Через Celery)
+                    send_simple_mail_task.delay(user_id=request.user.id,
+                                                title='Django-API-market: Изменение пароля',
+                                                message='Пароль был изменен')
         # проверяем остальные данные
         user_serializer = UserSerializer(request.user, data=request.data, partial=True)
         if user_serializer.is_valid():
@@ -139,6 +147,14 @@ class AccountDetails(APIView):
             # при изменении email статус пользователя перестает быть "активным"
             if request.data['email'] != request.user.email:
                 request.user.is_active = False
+
+                if request.data.get('test') == 'test':
+                    # Для тестирования возвращаем токен в ответе (вместо отправки почтой):
+                    token, _ = ConfirmEmailToken.objects.get_or_create(user_id=request.user.id)
+                    user_serializer.save()
+                    return JsonResponse({'Status': True,
+                                         'Token': token.key,
+                                         'Details': 'Изменился email. Нужно подтверждение'})
 
                 # Отправить пользователю письмо с токеном для подтверждения email (Через Celery)
                 send_token_to_email_task.delay(user_id=request.user.id,
