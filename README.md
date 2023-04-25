@@ -53,5 +53,9 @@ _Примечание: настройки почты установлены дл
 docker-compose up
 ```
 
-Коллекция запросов в _postman_ по [ссылке](https://www.postman.com/lunar-module-observer-40207937/workspace/gidrevich-django-market-api/collection/24640160-07a8908d-99b7-40fc-b8ea-7e5f2847543b?action=share&creator=24640160).
+### Коллекция запросов в _postman_ по [ссылке](https://www.postman.com/lunar-module-observer-40207937/workspace/gidrevich-django-market-api/collection/24640160-07a8908d-99b7-40fc-b8ea-7e5f2847543b?action=share&creator=24640160).
 
+Запуск тестов:
+```bash
+docker exec app pytest
+```

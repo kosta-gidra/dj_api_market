@@ -38,8 +38,8 @@ services:
       - .:/app
       - static_volume:/app/static
       - media_volume:/app/media
-    command: [sh, -c, "celery -A dj_api_diplom worker -D  && 
-    python manage.py collectstatic --noinput && 
+    command: [sh, -c, "celery -A dj_api_diplom worker -D  &&
+    python manage.py collectstatic --noinput &&
     python manage.py migrate && gunicorn dj_api_diplom.wsgi:application -b 0.0.0.0:8000"]
 
   nginx:
