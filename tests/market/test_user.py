@@ -15,7 +15,7 @@ def client():
 
 @pytest.fixture()
 def create_user():
-    """Фикстура создания пользователя и токена для авторизации"""
+    """Фикстура создания пользователя"""
 
     user = User.objects.create_user(first_name='First',
                                     last_name='Second',
@@ -29,12 +29,26 @@ def create_user():
 
 
 @pytest.fixture()
-def create_token(create_user):
+def create_active_user():
+    """Фикстура создания активного пользователя """
+
+    user = User.objects.create_user(first_name='First',
+                                    last_name='Second',
+                                    email=f'FirstSecond{randint(0, 1000)}@mail.ru',
+                                    password='qwer1234A',
+                                    company='CompanyOne',
+                                    position='worker',
+                                    type='shop',
+                                    is_active=True
+                                    )
+    return user
+
+
+@pytest.fixture()
+def create_token(create_active_user):
     """Фикстура создания пользователя и токена для авторизации"""
 
-    create_user.is_active = True
-    create_user.save()
-    token, _ = Token.objects.get_or_create(user_id=create_user.id)
+    token, _ = Token.objects.get_or_create(user_id=create_active_user.id)
     return token
 
 
@@ -82,13 +96,10 @@ def test_reg(client):
                             is_active=False
                             )
 
-    token = ConfirmEmailToken.objects.get(user_id=user.id)
-
+    assert user
     assert response.status_code == 200
     data = response.json()
     assert data['Status']
-    assert data['Token'] == token.key
-    assert user
 
 
 @pytest.mark.django_db
@@ -100,19 +111,18 @@ def test_confirm_reg(create_user, client):
 
     user = User.objects.get(id=create_user.id, is_active=True)
 
+    assert user
     assert response.status_code == 200
     data = response.json()
     assert data['Status']
-    assert user
 
 
 @pytest.mark.django_db
-def test_login(create_user, client):
+def test_login(create_active_user, client):
     """Тест авторизации"""
-    create_user.is_active = True
-    create_user.save()
 
-    response = client.post('/api/user/login', data=dict(email=f'{create_user.email}', password='qwer1234A'))
+    response = client.post('/api/user/login', data=dict(email=f'{create_active_user.email}', password='qwer1234A'))
+
     assert response.status_code == 200
     data = response.json()
     assert data['Status']
@@ -139,11 +149,10 @@ def test_edit_user(client_auth):
                             position='Dir',
                             is_active=False
                             )
-
+    assert user
     assert response.status_code == 200
     data = response.json()
     assert data['Status']
-    assert user
 
 
 @pytest.mark.django_db
@@ -198,3 +207,36 @@ def test_edit_contact(create_contact, client):
     assert data['street'] == contact.street
     assert data['phone'] == contact.phone
     assert data['house'] == contact.house
+
+
+@pytest.mark.django_db
+def test_reset_password(create_active_user, client):
+    """Тест сброса пароля"""
+
+    response = client.post('/api/user/password_reset', data=dict(email=create_active_user.email, test='test'))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['Status']
+    assert data['Test']
+
+
+@pytest.mark.django_db
+def test_confirm_reset_password(create_active_user, client):
+    """Тест подтверждения сброса пароля"""
+
+    token, _ = ConfirmEmailToken.objects.get_or_create(user_id=create_active_user.id)
+
+    user_before = User.objects.get(email=create_active_user.email)
+
+    response = client.post('/api/user/password_reset/confirm', data=dict(email=create_active_user.email,
+                                                                         password='qwer12345AA',
+                                                                         token=token.key,
+                                                                         test='test'))
+
+    user_after = User.objects.get(email=create_active_user.email)
+
+    assert user_before.password != user_after.password
+    assert response.status_code == 200
+    data = response.json()
+    assert data['Status']

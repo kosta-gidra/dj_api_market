@@ -43,9 +43,8 @@ class RegisterAccount(APIView):
                     user.save()
 
                     if request.data.get('test') == 'test':
-                        # Для тестирования возвращаем токен в ответе (вместо отправки почтой):
-                        token, _ = ConfirmEmailToken.objects.get_or_create(user_id=user.id)
-                        return JsonResponse({'Status': True, 'Token': token.key})
+                        # Для тестирования возвращаем:
+                        return JsonResponse({'Status': True, 'Test': 'Passed'})
 
                     else:
                         # Отправить пользователю email (с токеном) для его подтверждения, используя Signals:
@@ -149,11 +148,10 @@ class AccountDetails(APIView):
                 request.user.is_active = False
 
                 if request.data.get('test') == 'test':
-                    # Для тестирования возвращаем токен в ответе (вместо отправки почтой):
-                    token, _ = ConfirmEmailToken.objects.get_or_create(user_id=request.user.id)
+                    # Для тестирования возвращаем:
                     user_serializer.save()
                     return JsonResponse({'Status': True,
-                                         'Token': token.key,
+                                         'Test': 'Passed',
                                          'Details': 'Изменился email. Нужно подтверждение'})
 
                 # Отправить пользователю письмо с токеном для подтверждения email (Через Celery)
@@ -227,11 +225,16 @@ class ResetPassword(APIView):
 
             user = User.objects.get(email=request.data['email'])
             if user:
-                # Отправить пользователю письмо с токеном для подтверждения email (Через Celery)
-                send_token_to_email_task.delay(user_id=user.id,
-                                               title='Django-API-market: Reset password token')
+                if 'test' not in request.data:
+                    # Отправить пользователю письмо с токеном для подтверждения email (Через Celery)
+                    send_token_to_email_task.delay(user_id=user.id,
+                                                   title='Django-API-market: Reset password token')
+                    return JsonResponse({'Status': True})
 
-                return JsonResponse({'Status': True})
+                # Для тестирования возвращаем:
+                return JsonResponse({'Status': True,
+                                     'Test': 'Passed',
+                                     'Details': 'Пользователь найден, пароль может быть сброшен'})
 
             return JsonResponse({'Status': False, 'Errors': 'Пользователь с таким email не существует'})
 
@@ -262,12 +265,15 @@ class ResetPasswordConfirm(APIView):
                     token.user.set_password(request.data['password'])
                     token.user.save()
                     token.delete()
-                    # отправляем пользователю email уведомление о смене пароля (Через Celery)
-                    send_simple_mail_task.delay(user_id=token.user.id,
-                                                title='Django-API-market: Изменение пароля',
-                                                message='Пароль был изменен')
-                    return JsonResponse({'Status': True})
+                    if 'test' not in request.data:
+                        # отправляем пользователю email уведомление о смене пароля (Через Celery)
+                        send_simple_mail_task.delay(user_id=token.user.id,
+                                                    title='Django-API-market: Изменение пароля',
+                                                    message='Пароль был изменен')
+                        return JsonResponse({'Status': True})
+                    # Для тестирования возвращаем:
+                    return JsonResponse({'Status': True, 'Test': 'Passed'})
 
-            return JsonResponse({'Status': False, 'Errors': 'Токен указан неверно'})
+            return JsonResponse({'Status': False, 'Errors': 'Токен или email указан неверно'})
 
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
