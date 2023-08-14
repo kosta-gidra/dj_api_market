@@ -1,5 +1,5 @@
 """
-WSGI config for dj_api_diplom project.
+WSGI config for dj_api_market project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dj_api_diplom.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dj_api_market.settings')
 
 application = get_wsgi_application()

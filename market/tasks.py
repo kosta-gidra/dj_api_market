@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
-from dj_api_diplom.celery import app
+from dj_api_market.celery import app
 
 from market.models import ConfirmEmailToken, User
 
