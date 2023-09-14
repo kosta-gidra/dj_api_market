@@ -26,7 +26,7 @@ services:
 
   app:
     build: .
-    image: dj_api_diplom:latest
+    image: dj_api_market:latest
     container_name: app
     ports:
       - "8000:8000"

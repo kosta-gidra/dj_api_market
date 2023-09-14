@@ -25,7 +25,7 @@
 
 ## Документация по проекту
 
-В проекте используются переменные окружения. В рабочей дирректории необходимо создать файл .env с полями:
+В проекте используются переменные окружения. В рабочей директории необходимо создать файл .env с полями:
 
 ```
 PG_USER=
@@ -34,7 +34,7 @@ NGINX_EXTERNAL_PORT=
 EMAIL_HOST_USER= 
 EMAIL_HOST_PASSWORD=
 ```
-_Примечание: для тестов можно использовать настройки по умолчанию для следующих полей (т.е. не заполнять):_
+_Примечание: можно использовать настройки по умолчанию для следующих полей (т.е. не заполнять):_
 ```
 SECRET_KEY=  
 ALLOWED_HOSTS=
@@ -52,7 +52,7 @@ _Примечание: настройки почты установлены дл
 docker-compose up
 ```
 
-### Коллекция запросов в _postman_ по [ссылке](https://www.postman.com/lunar-module-observer-40207937/workspace/gidrevich-django-market-api/collection/24640160-07a8908d-99b7-40fc-b8ea-7e5f2847543b?action=share&creator=24640160).
+### Коллекция запросов в _postman_ по [ссылке](https://www.postman.com/lunar-module-observer-40207937/workspace/gidrevich-django-market-api/collection/24640160-07a8908d-99b7-40fc-b8ea-7e5f2847543b?action=share&creator=24640160). Так же есть OpenApi(Swagger).
 
 Запуск тестов:
 ```bash
